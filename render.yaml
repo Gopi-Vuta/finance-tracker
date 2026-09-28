@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: pennyfolio-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    healthCheckPath: /api/health
+    numInstances: 1
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production
+      - key: APP_BASE_URL
+        sync: false
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false

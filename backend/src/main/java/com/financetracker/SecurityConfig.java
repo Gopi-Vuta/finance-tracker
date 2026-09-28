@@ -8,13 +8,14 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 
 @Configuration
 class SecurityConfig {
+    @org.springframework.beans.factory.annotation.Value("${app.base-url}") String baseUrl;
     @Bean
     SecurityFilterChain security(HttpSecurity http) throws Exception {
         // Session-bound CSRF token is fetched through /api/csrf, never stored in localStorage.
         http.authorizeHttpRequests(a -> a
-                .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/api/config", "/api/csrf", "/error", "/oauth2/**", "/login/**").permitAll()
+                .requestMatchers("/", "/index.html", "/assets/**", "/favicon.ico", "/favicon.svg", "/api/health", "/api/config", "/api/csrf", "/error", "/oauth2/**", "/login/**").permitAll()
                 .anyRequest().authenticated())
-            .oauth2Login(o -> o.defaultSuccessUrl("/", true).failureUrl("/?login=failed"))
+            .oauth2Login(o -> o.defaultSuccessUrl(baseUrl+"/", true).failureUrl(baseUrl+"/?login=failed"))
             .exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
                 (req,res,ex) -> {res.setStatus(401);res.setContentType("application/json");res.getWriter().write("{\"message\":\"Sign in to continue.\"}");},
                 PathPatternRequestMatcher.withDefaults().matcher("/api/**")))

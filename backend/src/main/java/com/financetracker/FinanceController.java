@@ -15,6 +15,7 @@ class FinanceController {
     final FinanceService finance;
     @Value("${app.google-configured:}") String google;
     FinanceController(FinanceService finance){this.finance=finance;}
+    @GetMapping("/health") Map<String,String> health(){return Map.of("status","ok");}
     @GetMapping("/config") Map<String,Object> config(){return Map.of("googleConfigured",!google.isBlank()&&!google.startsWith("configure-")&&!google.startsWith("replace-"));}
     @GetMapping("/csrf") Map<String,String> csrf(CsrfToken token){return Map.of("token",token.getToken(),"headerName",token.getHeaderName());}
     @GetMapping("/state") Map<String,Object> state(@AuthenticationPrincipal OidcUser p){return finance.state(finance.user(p));}
