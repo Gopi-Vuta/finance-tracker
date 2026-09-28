@@ -246,3 +246,7 @@ Pastel metric cards, vector illustrations, navigation and section icons, gradien
 The original design is committed and tagged `pennyfolio-before-visual-refresh` (commit `bc6af10`). To view that version without changing the current branch, use `git switch --detach pennyfolio-before-visual-refresh`; return with `git switch -`. Keep local `.env` and database volumes. A Git bundle is supplied alongside the release to preserve both commits outside this workspace.
 
 Validation: 19 frontend tests pass; production build passes. Mock-data browser checks at 390px and 1440px show no page overflow; long sidebar identity fits; Budget Goals navigation works.
+
+### v0.3.1 — chart and spacing polish
+
+Rounded gradient bars, evenly spaced month groups, shaded trend lines, and explicit units. Expense panels use consistent row heights and section spacing. Check-in navigation aligns with the form card, with no layout-shifting step-selection notice. Frontend build and 19 tests pass.
