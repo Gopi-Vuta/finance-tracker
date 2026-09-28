@@ -238,3 +238,11 @@ To update an existing installation, replace the application source while retaini
 The app is now PennyFolio (with a “y”): sign-in page, sidebar, footer, browser title, favicon, backup filenames, and reminder emails use the new name. Existing backups remain compatible. Internal package names, browser storage keys, database identifiers, and the `finance-tracker-app` directory are retained for continuity.
 
 Update in your existing project directory, retain `.env` and the database volume, and run `docker compose up --build -d`. Google’s consent screen name is managed separately in Google Auth Platform → Branding; set its app name to PennyFolio there. OAuth client credentials and redirect URLs do not need to change for this rebrand.
+
+### v0.3.0 — visual refresh
+
+Pastel metric cards, vector illustrations, navigation and section icons, gradient PennyFolio branding, softer surfaces, and reduced-motion-aware transitions. Charts now label currency or percentage axes. No data schema changes.
+
+The original design is committed and tagged `pennyfolio-before-visual-refresh` (commit `bc6af10`). To view that version without changing the current branch, use `git switch --detach pennyfolio-before-visual-refresh`; return with `git switch -`. Keep local `.env` and database volumes. A Git bundle is supplied alongside the release to preserve both commits outside this workspace.
+
+Validation: 19 frontend tests pass; production build passes. Mock-data browser checks at 390px and 1440px show no page overflow; long sidebar identity fits; Budget Goals navigation works.
