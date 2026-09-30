@@ -260,3 +260,7 @@ Rounded gradient bars, evenly spaced month groups, shaded trend lines, and expli
 - Expense and receipt category pickers are searchable, include suggested icons and support personal categories. Existing free-text categories remain selectable.
 
 Data remains compatible with version-2 exports. Monthly JSON adds optional `receipts` and `assets` arrays; older documents default to empty arrays. `accounts[].balanceDate` is optional for old records. Flyway migration **V3** adds `app_users.preferences_json` for the single `primaryAccountKey` and custom category names/icons. Receipt account references are validated against the owner’s selected month. All changes use the existing authenticated, CSRF-protected, optimistic-revision save endpoint. Deploy the backend with V3 before deploying this frontend; no environment changes are required.
+
+### Unified accounts catalogue
+
+**Accounts & Assets** now combines bank accounts, cash, mutual funds, stocks, FD/RD, receivables and other holdings in one category-based Add/Edit form. Only Bank account shows the primary-account checkbox. Existing untyped bank/cash records retain their previous bank behavior; choose Cash where applicable. Bank/cash records use `accounts[].accountType` (`bank` or `cash`); investment/deposit valuations remain in `assets[]`, avoiding changes to old financial calculations. Moving a record between these categories preserves historical months, and linked receipts must be moved first. No additional database migration is required.

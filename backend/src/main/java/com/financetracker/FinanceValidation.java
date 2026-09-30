@@ -64,7 +64,7 @@ class FinanceValidation {
         text(user.get("name"),100);
         try {ZoneId.of(text(user.get("timezone"),100));}catch(Exception e){fail("Invalid timezone.");}
         Map<String,Object> recurring=object(user.get("recurring"));
-        for(String g:GROUPS){List<Object> rows=list(recurring.get(g));unique(rows);for(Object raw:rows){Map<String,Object> r=object(raw);text(r.get("name"),100);YearMonth start=month(text(r.get("start"),7));if(r.get("end")!=null&&!r.get("end").equals("")){if(month(text(r.get("end"),7)).isBefore(start))fail("Recurring end precedes start.");}if(!g.equals("accounts"))money(r.get("amount"),false);}}
+        for(String g:GROUPS){List<Object> rows=list(recurring.get(g));unique(rows);for(Object raw:rows){Map<String,Object> r=object(raw);text(r.get("name"),100);YearMonth start=month(text(r.get("start"),7));if(r.get("end")!=null&&!r.get("end").equals("")){if(month(text(r.get("end"),7)).isBefore(start))fail("Recurring end precedes start.");}if(g.equals("accounts"))accountType(r);else money(r.get("amount"),false);}}
         Map<String,Object> reminders=object(user.get("reminders"));
         for(String key:List.of("enabled","onlyIfIncomplete","stopWhenTallied","includeMissing"))bool(reminders.get(key));
         List<Object> schedules=list(reminders.get("schedules"));if(schedules.size()>20)fail("Maximum 20 reminder schedules.");unique(schedules);
@@ -78,7 +78,7 @@ class FinanceValidation {
             for(String g:List.of("accounts","cards","fixed","investments","oneoffs","remarks")){
                 List<Object> rows=list(m.get(g));unique(rows);
                 for(Object raw:rows){Map<String,Object> r=object(raw);if(g.equals("remarks")){text(r.get("text"),2000);continue;}text(r.get("name"),100);note(r);category(r);
-                    if(g.equals("accounts")){money(r.get("opening"),true);if(r.get("closing")!=null)money(r.get("closing"),true);}
+                    if(g.equals("accounts")){accountType(r);money(r.get("opening"),true);if(r.get("closing")!=null)money(r.get("closing"),true);}
                     else money(r.get("amount"),false);
                     if(g.equals("oneoffs")){try{LocalDate date=LocalDate.parse(text(r.get("date"),10));if(!YearMonth.from(date).equals(key))fail("Expense date must belong to its month.");}catch(java.time.DateTimeException e){fail("Invalid expense date.");}}
                 }
@@ -96,6 +96,7 @@ class FinanceValidation {
             if(checked.contains(7)&&actual(m)==null)fail("Closing balances are required to review reconciliation.");
         }
     }
+    static void accountType(Map<String,Object> r){if(!List.of("bank","cash").contains(r.getOrDefault("accountType","bank")))fail("Bank/cash accounts must use a valid category. Investment holdings belong in asset valuations.");}
     static void category(Map<String,Object> r){if(r.get("category")!=null&&!(r.get("category") instanceof String s&&s.length()<=100))fail("Category may contain up to 100 characters.");}
     static void recordDate(Object value,YearMonth key){try{if(!YearMonth.from(LocalDate.parse(text(value,10))).equals(key))fail("Date must belong to the selected month.");}catch(java.time.DateTimeException e){fail("Invalid date.");}}
     static BigDecimal receipts(Map<String,Object> m){BigDecimal n=BigDecimal.ZERO;for(Object raw:list(m.getOrDefault("receipts",List.of()))){Map<String,Object> r=object(raw);if(!"transfer".equals(r.get("type")))n=n.add(money(r.get("amount"),false));}return n;}

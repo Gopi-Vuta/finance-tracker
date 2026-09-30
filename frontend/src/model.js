@@ -1,7 +1,7 @@
 import {receiptSummary,roundMoney} from './money.js';
 export const STORAGE_KEY = 'finance-tracker:v2';
-export const GROUPS = { accounts: 'Bank Accounts & Cash', cards: 'Credit Cards', fixed: 'Fixed Expenses', investments: 'Investments / SIPs', oneoffs: 'One-off Expenses', remarks: 'Remarks' };
-export const STEPS = ['Income & Money Received', 'Bank Accounts & Cash', 'Credit Cards', 'Fixed Expenses', 'Investments', 'One-off Expenses', 'Remarks', 'Reconciliation'];
+export const GROUPS = { accounts: 'Accounts & Assets', cards: 'Credit Cards', fixed: 'Fixed Expenses', investments: 'Investments / SIPs', oneoffs: 'One-off Expenses', remarks: 'Remarks' };
+export const STEPS = ['Income & Money Received', 'Accounts & Assets', 'Credit Cards', 'Fixed Expenses', 'Investments', 'One-off Expenses', 'Remarks', 'Reconciliation'];
 export const id = () => crypto.randomUUID();
 export const currentMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
 export const validMonth = value => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && value >= '1900-01' && value <= '9999-12';
