@@ -1,7 +1,11 @@
 import {receiptSummary,roundMoney} from './money.js';
 export const STORAGE_KEY = 'finance-tracker:v2';
-export const GROUPS = { accounts: 'Accounts & Assets', cards: 'Credit Cards', fixed: 'Fixed Expenses', investments: 'Investments / SIPs', oneoffs: 'One-off Expenses', remarks: 'Remarks' };
+export const GROUPS = { accounts: 'Accounts & Assets', cards: 'Credit Cards', fixed: 'Fixed Expenses', investments: 'Investments / SIPs', oneoffs: 'One-off Expenses', remarks: 'Monthly notes' };
 export const STEPS = ['Income & Money Received', 'Accounts & Assets', 'Credit Cards', 'Fixed Expenses', 'Investments', 'One-off Expenses', 'Remarks', 'Reconciliation'];
+// Keep persisted step IDs stable; legacy remarks (6) are optional notes.
+export const REVIEW_STEPS = [0,1,2,3,4,5,7];
+export const reviewComplete = m => REVIEW_STEPS.every(i=>m.completed.includes(i));
+export const dailyRecords = (m,date) => ({...m,oneoffs:(m.oneoffs||[]).filter(r=>r.date===date),receipts:(m.receipts||[]).filter(r=>r.date===date)});
 export const id = () => crypto.randomUUID();
 export const currentMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
 export const validMonth = value => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && value >= '1900-01' && value <= '9999-12';
@@ -10,7 +14,7 @@ export function monthLabel(key, short=false) { const [y,m] = key.split('-').map(
 export const sum = (rows, field='amount') => rows.reduce((a,r)=>a+Number(r[field]||0),0);
 export function newUser(name,email) { return {id:id(),name,email,timezone:'Asia/Kolkata',recurring:{accounts:[],cards:[],fixed:[],investments:[]},reminders:{enabled:true,onlyIfIncomplete:true,stopWhenTallied:true,includeMissing:true,schedules:[{id:id(),day:25,time:'19:00',purpose:'Start monthly check-in',enabled:true}]}}; }
 export function monthFor(state,userId,key) {
- const saved=state.months[userId]?.[key]; if(saved) return {...saved,receipts:saved.receipts||[],assets:saved.assets||[]};
+ const saved=state.months[userId]?.[key]; if(saved) return {...saved,step:saved.step===6?7:saved.step,receipts:saved.receipts||[],assets:saved.assets||[]};
  const user=state.users.find(u=>u.id===userId); const m={income:0,accounts:[],cards:[],fixed:[],investments:[],oneoffs:[],remarks:[],receipts:[],assets:[],completed:[],step:0};
  const previousKey=Object.keys(state.months[userId]||{}).filter(month=>month<key).sort().at(-1),previous=previousKey?state.months[userId][previousKey]:null;
  m.assets=(previous?.assets||[]).map(a=>({...a,value:a.value??null,carried:true}));
@@ -31,12 +35,12 @@ export function totals(m) {
  const receipts=receiptSummary(m),income=roundMoney(Number(m.income)+receipts.income),regular=sum(m.cards)+sum(m.fixed),oneoff=sum(m.oneoffs),refund=receipts.refund,otherReceipts=receipts.other,invest=sum(m.investments),remaining=roundMoney(income-regular-oneoff+refund-invest),opening=sum(m.accounts,'opening');
  const actual=m.accounts.length && m.accounts.every(a=>!a.carried && a.closing!==null && a.closing!=='')?sum(m.accounts,'closing'):null;
  const netCashFlow=roundMoney(remaining+otherReceipts),expected=roundMoney(opening+netCashFlow),difference=actual===null?null:Math.round((actual-expected)*100)/100;
- return {income,regular,oneoff,refund,otherReceipts,netCashFlow,invest,remaining,opening,expected,actual,difference,investRate:income?invest/income:0,uncommittedRate:income?remaining/income:0,rate:income?(income-regular-oneoff+refund)/income:0,tallied:difference===0&&m.completed.includes(7),done:m.completed.length};
+ return {income,regular,oneoff,refund,otherReceipts,netCashFlow,invest,remaining,opening,expected,actual,difference,investRate:income?invest/income:0,uncommittedRate:income?remaining/income:0,rate:income?(income-regular-oneoff+refund)/income:0,tallied:difference===0&&m.completed.includes(7),done:REVIEW_STEPS.filter(i=>m.completed.includes(i)).length};
 }
 export function aggregate(records) { const rows=records.map(totals),out={}; for(const k of ['income','regular','oneoff','refund','otherReceipts','netCashFlow','invest','remaining','opening','expected','done']) out[k]=sum(rows,k);out.actual=rows.every(r=>r.actual!==null)?sum(rows,'actual'):null;out.difference=out.actual===null?null:Math.round((out.actual-out.expected)*100)/100;out.investRate=out.income?out.invest/out.income:0;out.uncommittedRate=out.income?out.remaining/out.income:0;out.rate=out.income?(out.income-out.regular-out.oneoff+out.refund)/out.income:0;out.tallied=rows.length>0&&rows.every(r=>r.tallied);return out; }
 export function dateRange(state,userIds) { const keys=userIds.flatMap(uid=>Object.keys(state.months[uid]||{}));keys.push(currentMonth());keys.sort();return {first:keys[0],last:keys.at(-1)}; }
 export function familyFor(state,uid) { return state.families.find(f=>f.memberIds.includes(uid)); }
-export function talliedStreak(state,uid,through){let key=through,count=0;for(;;){const month=state.months[uid]?.[key];if(!month||!totals(month).tallied||month.completed.length!==8)break;count++;key=shiftMonth(key,-1);}return count;}
+export function talliedStreak(state,uid,through){let key=through,count=0;for(;;){const month=state.months[uid]?.[key];if(!month||!totals(month).tallied||!reviewComplete(month))break;count++;key=shiftMonth(key,-1);}return count;}
 export function createFamily(state,uid,name) { if(familyFor(state,uid)) throw new Error('Leave your current family before creating another.'); const family={id:id(),name,code:id().slice(0,8).toUpperCase(),memberIds:[uid]};return {...state,families:[...state.families,family]}; }
 export function joinFamily(state,uid,code) { if(familyFor(state,uid)) throw new Error('Leave your current family before joining another.');const f=state.families.find(f=>f.code===code.trim().toUpperCase());if(!f) throw new Error('No family with that code exists in this browser.');return {...state,families:state.families.map(x=>x.id===f.id?{...x,memberIds:[...x.memberIds,uid]}:x)}; }
 export function seedState() {

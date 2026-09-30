@@ -103,7 +103,7 @@ class FinanceApiTests {
     @Test void reminderClampsLeapMonthAndDeduplicates()throws Exception{
         var p=payload(state("a"));var u=object(p.get("user"));u.put("timezone","UTC");u.put("reminders",Map.of("enabled",true,"onlyIfIncomplete",true,"stopWhenTallied",true,"includeMissing",true,"schedules",List.of(Map.of("id","monthly","day",31,"time","10:00","purpose","Start monthly check-in","enabled",true))));save("a",p);
         Recorder mail=new Recorder();ReminderScheduler scheduler=new ReminderScheduler(service,db,mail,"finance@localhost","http://localhost:8080");
-        scheduler.tick(Instant.parse("2032-02-29T09:59:00Z"));assertEquals(0,mail.messages.size());scheduler.tick(Instant.parse("2032-02-29T10:00:00Z"));scheduler.tick(Instant.parse("2032-02-29T10:01:00Z"));assertEquals(1,mail.messages.size());assertEquals("a@example.com",mail.messages.get(0).getTo()[0]);assertTrue(mail.messages.get(0).getText().contains("Income"));
+        scheduler.tick(Instant.parse("2032-02-29T09:59:00Z"));assertEquals(0,mail.messages.size());scheduler.tick(Instant.parse("2032-02-29T10:00:00Z"));scheduler.tick(Instant.parse("2032-02-29T10:01:00Z"));assertEquals(1,mail.messages.size());assertEquals("a@example.com",mail.messages.get(0).getTo()[0]);assertTrue(mail.messages.get(0).getText().contains("Income"));assertFalse(mail.messages.get(0).getText().contains("Remarks"));
     }
     @Test void reminderStopsWhenTallied()throws Exception{
         var p=payload(state("a"));var u=object(p.get("user"));u.put("timezone","UTC");u.put("reminders",Map.of("enabled",true,"onlyIfIncomplete",false,"stopWhenTallied",true,"includeMissing",false,"schedules",List.of(Map.of("id","monthly","day",1,"time","10:00","purpose","Final reconciliation","enabled",true))));

@@ -1,5 +1,5 @@
 import {receiptSummary} from './money.js';
-import {shiftMonth, monthLabel, totals} from './model.js';
+import {shiftMonth, monthLabel, totals, reviewComplete} from './model.js';
 export const categories={fixed:'Fixed expenses',cards:'Credit cards',oneoffs:'Variable expenses',investments:'Investments'};
 export const defaultBudget=()=>({preset:'Balanced',targets:{Needs:50,Wants:30,Savings:20},mapping:{fixed:'Needs',cards:'Wants',oneoffs:'Wants',investments:'Savings'}});
 export const presets={Balanced:[50,30,20],'Debt payoff':[50,20,30],'Aggressive saver':[35,15,50]};
@@ -28,7 +28,7 @@ export function insight(now,previous){
  candidates.sort((a,b)=>b.change-a.change);const top=candidates[0];return top?`${top.label} ${top.d<0?'dropped':'rose'} ${Math.round(Math.abs(top.d)*100)}% from last month.`:null;
 }
 export function streakInfo(state,uid,selected){
- const months=state.months[uid]||{},qualified=k=>{const m=months[k];return !!m&&new Set(m.completed).size===8&&totals(m).tallied;};
+ const months=state.months[uid]||{},qualified=k=>{const m=months[k];return !!m&&reviewComplete(m)&&totals(m).tallied;};
  let key=qualified(selected)?selected:shiftMonth(selected,-1),count=0;
  while(key>='1900-01'&&qualified(key)){count++;key=shiftMonth(key,-1);}
  const hadEarlier=Object.keys(months).some(k=>k<key&&qualified(k));

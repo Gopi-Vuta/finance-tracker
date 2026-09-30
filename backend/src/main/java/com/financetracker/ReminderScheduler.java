@@ -42,7 +42,7 @@ class ReminderScheduler {
         if(!Boolean.TRUE.equals(prefs.get("enabled")))return;
         ZonedDateTime local=now.atZone(ZoneId.of((String)user.get("timezone")));YearMonth month=YearMonth.from(local);
         Object raw=finance.months(uid).get(month.toString());Map<String,Object> record=raw==null?null:object(raw);
-        boolean complete=record!=null&&list(record.get("completed")).size()==8;
+        boolean complete=record!=null&&list(record.get("completed")).stream().map(v->integer(v,0,7)).toList().containsAll(List.of(0,1,2,3,4,5,7));
         if(Boolean.TRUE.equals(prefs.get("onlyIfIncomplete"))&&complete)return;
         if(Boolean.TRUE.equals(prefs.get("stopWhenTallied"))&&record!=null&&tallied(record))return;
         for(Object schedule:list(prefs.get("schedules"))){
@@ -57,7 +57,7 @@ class ReminderScheduler {
             try{
                 SimpleMailMessage message=new SimpleMailMessage();message.setFrom(from);message.setTo((String)user.get("email"));message.setSubject("PennyFolio: "+month+" monthly check-in");
                 String body="Hello "+user.get("name")+",\n\n"+s.get("purpose")+" for "+month+".\n";
-                if(Boolean.TRUE.equals(prefs.get("includeMissing"))){List<String> labels=List.of("Income","Accounts","Credit cards","Fixed expenses","Investments","One-off expenses","Remarks","Reconciliation");Set<Integer> completed=new HashSet<>();if(record!=null)for(Object step:list(record.get("completed")))completed.add(integer(step,0,7));List<String> missing=new ArrayList<>();for(int i=0;i<8;i++)if(!completed.contains(i))missing.add(labels.get(i));body+="Sections to review: "+(missing.isEmpty()?"All reviewed; check any remaining balance difference.":String.join(", ",missing))+"\n";}
+                if(Boolean.TRUE.equals(prefs.get("includeMissing"))){List<String> labels=List.of("Income","Accounts","Credit cards","Fixed expenses","Investments","One-off expenses","Remarks","Reconciliation");Set<Integer> completed=new HashSet<>();if(record!=null)for(Object step:list(record.get("completed")))completed.add(integer(step,0,7));List<String> missing=new ArrayList<>();for(int i=0;i<8;i++)if(i!=6&&!completed.contains(i))missing.add(labels.get(i));body+="Sections to review: "+(missing.isEmpty()?"All reviewed; check any remaining balance difference.":String.join(", ",missing))+"\n";}
                 message.setText(body+"\nOpen your tracker: "+baseUrl+"\n\nManage reminder settings in PennyFolio.");mail.send(message);
                 db.update("update reminder_deliveries set status='SENT',sent_at=? where user_id=? and schedule_id=? and month_key=?",Timestamp.from(now),uid,sid,month.toString());
             }catch(Exception e){db.update("update reminder_deliveries set status='RETRY' where user_id=? and schedule_id=? and month_key=?",uid,sid,month.toString());LOG.warn("Reminder delivery failed and will retry; no finance content logged. Cause: {}",e.getClass().getSimpleName());}
