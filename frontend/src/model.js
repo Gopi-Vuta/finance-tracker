@@ -13,10 +13,26 @@ export function shiftMonth(key, delta) { const [y,m] = key.split('-').map(Number
 export function monthLabel(key, short=false) { const [y,m] = key.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-IN',{month:short?'short':'long',year:'numeric'}); }
 export const sum = (rows, field='amount') => rows.reduce((a,r)=>a+Number(r[field]||0),0);
 export function newUser(name,email) { return {id:id(),name,email,timezone:'Asia/Kolkata',recurring:{accounts:[],cards:[],fixed:[],investments:[]},reminders:{enabled:true,onlyIfIncomplete:true,stopWhenTallied:true,includeMissing:true,schedules:[{id:id(),day:25,time:'19:00',purpose:'Start monthly check-in',enabled:true}]}}; }
+// Resolve missing holdings through already-created months without replacing their entries.
+function carriedHoldings(state,userId,key){
+ let accounts=[],assets=[];
+ for(const k of Object.keys(state.months[userId]||{}).filter(k=>k<=key).sort()){
+  const raw=state.months[userId][k],removed=new Set(raw.removedHoldings||[]);
+  const merge=(previous,current,group)=>{
+   const identity=a=>group==='accounts'?(a.sourceId||a.id):a.id;
+   const existing=new Set(current.map(identity));
+   const inherited=raw.completed.includes(1)?[]:previous.filter(a=>!existing.has(identity(a))&&!removed.has(group+':'+identity(a))).map(a=>({...a,carried:true,...(group==='accounts'?{opening:a.closing??a.opening??0,estimated:true}:{})}));
+   const resolved=current.map(a=>{const prior=previous.find(p=>identity(p)===identity(a));return group==='accounts'&&prior&&a.estimated===true&&a.closing==null?{...a,opening:prior.closing??prior.opening??0,closing:prior.closing??null,balanceDate:prior.balanceDate||'',carried:true}:a;});
+   return [...resolved,...inherited];
+  };
+  accounts=merge(accounts,raw.accounts,'accounts');assets=merge(assets,raw.assets||[],'assets');
+ }
+ return {accounts,assets};
+}
 export function monthFor(state,userId,key) {
- const saved=state.months[userId]?.[key]; if(saved) return {...saved,step:saved.step===6?7:saved.step,receipts:saved.receipts||[],assets:saved.assets||[]};
+ const saved=state.months[userId]?.[key]; if(saved){const holdings=carriedHoldings(state,userId,key),added=holdings.accounts.length!==saved.accounts.length||holdings.assets.length!==(saved.assets||[]).length;return {...saved,...holdings,completed:added?saved.completed.filter(i=>i!==1&&i!==7):saved.completed,step:saved.step===6?7:saved.step,receipts:saved.receipts||[],assets:holdings.assets};}
  const user=state.users.find(u=>u.id===userId); const m={income:0,accounts:[],cards:[],fixed:[],investments:[],oneoffs:[],remarks:[],receipts:[],assets:[],completed:[],step:0};
- const previousKey=Object.keys(state.months[userId]||{}).filter(month=>month<key).sort().at(-1),previous=previousKey?state.months[userId][previousKey]:null;
+ const previousKey=Object.keys(state.months[userId]||{}).filter(month=>month<key).sort().at(-1),previous=previousKey?{...state.months[userId][previousKey],...carriedHoldings(state,userId,previousKey)}:null;
  m.assets=(previous?.assets||[]).map(a=>({...a,value:a.value??null,carried:true}));
  for(const group of Object.keys(user.recurring)) m[group]=user.recurring[group].filter(r=>r.start<=key && (!r.end||r.end>=key)).map(r=>{
   const prior=group==='fixed'?previous?.fixed?.find(item=>item.sourceId===r.id):null;
@@ -29,7 +45,7 @@ export function monthFor(state,userId,key) {
  }
  return m;
 }
-export function ensureMonth(state,userId,key) { if(!validMonth(key)) throw new Error('Choose a valid month.'); if(state.months[userId]?.[key]) return state; return {...state,months:{...state.months,[userId]:{...state.months[userId],[key]:monthFor(state,userId,key)}}}; }
+export function ensureMonth(state,userId,key) { if(!validMonth(key)) throw new Error('Choose a valid month.'); const resolved=monthFor(state,userId,key);if(JSON.stringify(state.months[userId]?.[key])===JSON.stringify(resolved))return state;return {...state,months:{...state.months,[userId]:{...state.months[userId],[key]:resolved}}}; }
 export function updateMonth(state,userId,key,fn) { const next=ensureMonth(state,userId,key); const m=structuredClone(monthFor(next,userId,key)); fn(m); m.completed=m.completed.filter(x=>x!==7); return {...next,months:{...next.months,[userId]:{...next.months[userId],[key]:m}}}; }
 export function totals(m) {
  const receipts=receiptSummary(m),income=roundMoney(Number(m.income)+receipts.income),regular=sum(m.cards)+sum(m.fixed),oneoff=sum(m.oneoffs),refund=receipts.refund,otherReceipts=receipts.other,invest=sum(m.investments),remaining=roundMoney(income-regular-oneoff+refund-invest),opening=sum(m.accounts,'opening');

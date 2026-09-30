@@ -73,7 +73,7 @@ class FinanceValidation {
     void months(Map<String,Object> months){
         if(months.size()>1200)fail("Maximum 1200 stored months.");
         for(var entry:months.entrySet()){
-            YearMonth key=month(entry.getKey());Map<String,Object> m=object(entry.getValue());money(m.get("income"),false);integer(m.get("step"),0,7);
+            YearMonth key=month(entry.getKey());Map<String,Object> m=object(entry.getValue());if(m.get("removedHoldings")!=null)for(Object removed:list(m.get("removedHoldings")))text(removed,210);money(m.get("income"),false);integer(m.get("step"),0,7);
             List<Object> done=list(m.get("completed"));Set<Integer> checked=new HashSet<>();for(Object step:done)if(!checked.add(integer(step,0,7)))fail("Duplicate completed step.");
             for(String g:List.of("accounts","cards","fixed","investments","oneoffs","remarks")){
                 List<Object> rows=list(m.get(g));unique(rows);
