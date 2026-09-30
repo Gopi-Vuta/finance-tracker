@@ -110,5 +110,18 @@ class FinanceApiTests {
         var m=month();m.put("accounts",List.of(Map.of("id","account","name","Bank","opening",0,"closing",1000)));m.put("completed",List.of(7));object(p.get("months")).put("2032-03",m);save("a",p);
         Recorder mail=new Recorder();new ReminderScheduler(service,db,mail,"finance@localhost","http://localhost:8080").tick(Instant.parse("2032-03-02T10:00:00Z"));assertTrue(mail.messages.isEmpty());
     }
+    @Test void receiptsAssetsAndPreferencesPersistAndValidate()throws Exception{
+        var p=payload(state("wealth"));var m=month();
+        m.put("accounts",List.of(Map.of("id","a","sourceId","bank","name","ICICI","opening",2000,"closing",53000)));
+        m.put("receipts",List.of(Map.of("id","r","name","Returned loan","type","loan_return","amount",50000,"accountId","bank","date","2030-02-10")));
+        m.put("assets",List.of(Map.of("id","mf","name","Mutual fund","kind","mutual_fund","value",100000,"date","2030-02-28")));
+        m.put("completed",List.of(7));object(p.get("months")).put("2030-02",m);
+        var prefs=Map.of("primaryAccountKey","bank","categories",List.of(Map.of("name","Personal","icon","🏷️")));object(p.get("user")).put("preferences",prefs);
+        save("wealth",p);var loaded=payload(state("wealth"));assertEquals(prefs,object(loaded.get("user")).get("preferences"));assertEquals(m,object(loaded.get("months")).get("2030-02"));assertTrue(tallied(m));
+        object(loaded.get("user")).remove("preferences");save("wealth",loaded);assertEquals(prefs,object(payload(state("wealth")).get("user")).get("preferences"));
+        var bad=payload(state("wealth"));var document=object(object(bad.get("months")).get("2030-02"));document.put("receipts",List.of(Map.of("id","bad","name","Transfer","type","transfer","amount",100,"accountId","bank","fromAccountId","bank","date","2030-02-10")));
+        mvc.perform(put("/api/finance").with(google("wealth")).with(csrf()).contentType("application/json").content(service.encode(bad))).andExpect(status().isBadRequest());
+        assertEquals(50000,object(list(object(object(payload(state("wealth")).get("months")).get("2030-02")).get("receipts")).get(0)).get("amount"));
+    }
     static class Recorder extends JavaMailSenderImpl {final List<SimpleMailMessage> messages=new ArrayList<>();@Override public void send(SimpleMailMessage message){messages.add(message);}}
 }

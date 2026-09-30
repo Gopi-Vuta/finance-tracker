@@ -41,14 +41,14 @@ public class FinanceService {
     }
     Map<String,Object> userRow(String uid,boolean self){
         return db.queryForObject("select * from app_users where id=?",(rs,n)->{
-            Map<String,Object> u=new LinkedHashMap<>();u.put("id",rs.getString("id"));u.put("name",rs.getString("name"));u.put("email",rs.getString("email"));u.put("timezone",rs.getString("timezone"));u.put("budget",decode(rs.getString("budget_json")));u.put("recurring",decode(rs.getString("recurring_json")));u.put("reminders",self?decode(rs.getString("reminders_json")):defaultReminders());return u;
+            Map<String,Object> u=new LinkedHashMap<>();u.put("id",rs.getString("id"));u.put("name",rs.getString("name"));u.put("email",rs.getString("email"));u.put("timezone",rs.getString("timezone"));u.put("preferences",decode(rs.getString("preferences_json")));u.put("budget",decode(rs.getString("budget_json")));u.put("recurring",decode(rs.getString("recurring_json")));u.put("reminders",self?decode(rs.getString("reminders_json")):defaultReminders());return u;
         },uid);
     }
     Map<String,Object> months(String uid){Map<String,Object> result=new TreeMap<>();db.query("select month_key,document_json from monthly_records where user_id=? order by month_key",rs->{result.put(rs.getString(1),decode(rs.getString(2)));},uid);return result;}
     boolean hasFinancialData(Map<String,Object> month){
         Object income=month.get("income");
         if(income instanceof Number number&&number.doubleValue()!=0)return true;
-        for(String group:List.of("accounts","cards","fixed","investments","oneoffs","remarks")){
+        for(String group:List.of("accounts","cards","fixed","investments","oneoffs","remarks","receipts","assets")){
             if(month.get(group) instanceof Collection<?> entries&&!entries.isEmpty())return true;
         }
         return false;
@@ -70,7 +70,7 @@ public class FinanceService {
         if(!(request.get("revision") instanceof Number n)||n.longValue()!=revision)throw new ResponseStatusException(CONFLICT,"Data changed in another session. Export your unsaved draft, then reload before editing.");
         Map<String,Object> user=object(request.get("user"));if(!uid.equals(user.get("id")))throw new ResponseStatusException(FORBIDDEN,"You can only edit your own finances.");
         Map<String,Object> documents=object(request.get("months"));validation.user(user);validation.months(documents);
-        db.update("update app_users set name=?,timezone=?,recurring_json=?,reminders_json=?,budget_json=?,revision=revision+1 where id=?",text(user.get("name"),100),text(user.get("timezone"),100),encode(user.get("recurring")),encode(user.get("reminders")),encode(user.getOrDefault("budget",Map.of())),uid);
+        db.update("update app_users set name=?,timezone=?,recurring_json=?,reminders_json=?,budget_json=?,preferences_json=?,revision=revision+1 where id=?",text(user.get("name"),100),text(user.get("timezone"),100),encode(user.get("recurring")),encode(user.get("reminders")),encode(user.getOrDefault("budget",Map.of())),encode(user.getOrDefault("preferences",userRow(uid,true).get("preferences"))),uid);
         // One owner's complete document set is replaced atomically under an optimistic revision + row lock.
         db.update("delete from monthly_records where user_id=?",uid);
         documents.forEach((key,value)->db.update("insert into monthly_records(user_id,month_key,document_json) values(?,?,?)",uid,key,encode(value)));

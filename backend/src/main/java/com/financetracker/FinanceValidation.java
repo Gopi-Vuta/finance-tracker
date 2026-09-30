@@ -56,6 +56,11 @@ class FinanceValidation {
             if(sum!=100)fail("Budget targets must total 100%.");
             for(String group:List.of("fixed","cards","oneoffs","investments"))if(!List.of("Needs","Wants","Savings").contains(mapping.get(group)))fail("Invalid budget category.");
         }
+        if(user.get("preferences")!=null){
+            Map<String,Object> prefs=object(user.get("preferences"));
+            if(prefs.get("primaryAccountKey")!=null)text(prefs.get("primaryAccountKey"),100);
+            if(prefs.get("categories")!=null){List<Object> cats=list(prefs.get("categories"));Set<String> names=new HashSet<>();for(Object raw:cats){Map<String,Object> c=object(raw);if(!names.add(text(c.get("name"),100).toLowerCase(Locale.ROOT)))fail("Duplicate category.");if(!List.of("🏠","🍽️","🛒","🚗","💊","🎉","✈️","🎓","💼","🎁","↩️","💰","📈","🏷️").contains(c.get("icon")))fail("Choose a category icon.");}}
+        }
         text(user.get("name"),100);
         try {ZoneId.of(text(user.get("timezone"),100));}catch(Exception e){fail("Invalid timezone.");}
         Map<String,Object> recurring=object(user.get("recurring"));
@@ -72,17 +77,30 @@ class FinanceValidation {
             List<Object> done=list(m.get("completed"));Set<Integer> checked=new HashSet<>();for(Object step:done)if(!checked.add(integer(step,0,7)))fail("Duplicate completed step.");
             for(String g:List.of("accounts","cards","fixed","investments","oneoffs","remarks")){
                 List<Object> rows=list(m.get(g));unique(rows);
-                for(Object raw:rows){Map<String,Object> r=object(raw);if(g.equals("remarks")){text(r.get("text"),2000);continue;}text(r.get("name"),100);note(r);
+                for(Object raw:rows){Map<String,Object> r=object(raw);if(g.equals("remarks")){text(r.get("text"),2000);continue;}text(r.get("name"),100);note(r);category(r);
                     if(g.equals("accounts")){money(r.get("opening"),true);if(r.get("closing")!=null)money(r.get("closing"),true);}
                     else money(r.get("amount"),false);
                     if(g.equals("oneoffs")){try{LocalDate date=LocalDate.parse(text(r.get("date"),10));if(!YearMonth.from(date).equals(key))fail("Expense date must belong to its month.");}catch(java.time.DateTimeException e){fail("Invalid expense date.");}}
                 }
             }
+            Set<String> accountKeys=new HashSet<>();for(Object raw:list(m.get("accounts"))){Map<String,Object> a=object(raw);String accountKey=text(a.getOrDefault("sourceId",a.get("id")),100);if(!accountKeys.add(accountKey))fail("Duplicate account identity.");if(a.get("balanceDate")!=null&&!a.get("balanceDate").equals(""))recordDate(a.get("balanceDate"),key);}
+            List<Object> receipts=list(m.getOrDefault("receipts",List.of()));unique(receipts);
+            for(Object raw:receipts){Map<String,Object> r=object(raw);text(r.get("name"),100);note(r);category(r);if(money(r.get("amount"),false).signum()==0)fail("Receipt amount must be positive.");recordDate(r.get("date"),key);
+                if(!List.of("income","loan_return","refund","investment_withdrawal","transfer").contains(r.get("type")))fail("Invalid receipt type.");
+                if(!accountKeys.contains(text(r.get("accountId"),100)))fail("Choose a receiving account from this month.");
+                if("transfer".equals(r.get("type"))&&(!accountKeys.contains(text(r.get("fromAccountId"),100))||r.get("fromAccountId").equals(r.get("accountId"))))fail("Choose two different accounts for a transfer.");
+                if("refund".equals(r.get("type"))){if(!List.of("current","earlier").contains(r.get("refundPeriod")))fail("Choose the original expense period.");if("current".equals(r.get("refundPeriod"))&&!List.of("cards","fixed","oneoffs").contains(r.get("refundGroup")))fail("Choose an expense section.");}
+            }
+            List<Object> assets=list(m.getOrDefault("assets",List.of()));unique(assets);
+            for(Object raw:assets){Map<String,Object> a=object(raw);text(a.get("name"),100);note(a);if(!List.of("mutual_fund","stocks","fd","rd","receivable","other").contains(a.get("kind")))fail("Invalid asset type.");if(a.get("value")!=null){money(a.get("value"),false);recordDate(a.get("date"),key);}else if(a.get("date")!=null&&!a.get("date").equals(""))recordDate(a.get("date"),key);}
             if(checked.contains(7)&&actual(m)==null)fail("Closing balances are required to review reconciliation.");
         }
     }
+    static void category(Map<String,Object> r){if(r.get("category")!=null&&!(r.get("category") instanceof String s&&s.length()<=100))fail("Category may contain up to 100 characters.");}
+    static void recordDate(Object value,YearMonth key){try{if(!YearMonth.from(LocalDate.parse(text(value,10))).equals(key))fail("Date must belong to the selected month.");}catch(java.time.DateTimeException e){fail("Invalid date.");}}
+    static BigDecimal receipts(Map<String,Object> m){BigDecimal n=BigDecimal.ZERO;for(Object raw:list(m.getOrDefault("receipts",List.of()))){Map<String,Object> r=object(raw);if(!"transfer".equals(r.get("type")))n=n.add(money(r.get("amount"),false));}return n;}
     static BigDecimal total(Map<String,Object> m,String group,String field){BigDecimal n=BigDecimal.ZERO;for(Object raw:list(m.get(group))){Object v=object(raw).get(field);if(v!=null)n=n.add(money(v,true));}return n;}
-    static BigDecimal expected(Map<String,Object> m){return money(m.get("income"),false).add(total(m,"accounts","opening")).subtract(total(m,"cards","amount")).subtract(total(m,"fixed","amount")).subtract(total(m,"investments","amount")).subtract(total(m,"oneoffs","amount"));}
+    static BigDecimal expected(Map<String,Object> m){return money(m.get("income"),false).add(receipts(m)).add(total(m,"accounts","opening")).subtract(total(m,"cards","amount")).subtract(total(m,"fixed","amount")).subtract(total(m,"investments","amount")).subtract(total(m,"oneoffs","amount"));}
     static BigDecimal actual(Map<String,Object> m){List<Object> accounts=list(m.get("accounts"));if(accounts.isEmpty()||accounts.stream().anyMatch(a->object(a).get("closing")==null))return null;return total(m,"accounts","closing");}
     static boolean tallied(Map<String,Object> m){return actual(m)!=null&&actual(m).compareTo(expected(m))==0&&list(m.get("completed")).stream().anyMatch(v->integer(v,0,7)==7);}
 }
