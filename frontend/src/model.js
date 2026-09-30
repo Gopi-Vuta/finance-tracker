@@ -13,18 +13,23 @@ export function monthFor(state,userId,key) {
  const saved=state.months[userId]?.[key]; if(saved) return {...saved,receipts:saved.receipts||[],assets:saved.assets||[]};
  const user=state.users.find(u=>u.id===userId); const m={income:0,accounts:[],cards:[],fixed:[],investments:[],oneoffs:[],remarks:[],receipts:[],assets:[],completed:[],step:0};
  const previousKey=Object.keys(state.months[userId]||{}).filter(month=>month<key).sort().at(-1),previous=previousKey?state.months[userId][previousKey]:null;
- m.assets=(previous?.assets||[]).map(a=>({...a,value:null,date:'',previousValue:a.value}));
+ m.assets=(previous?.assets||[]).map(a=>({...a,value:a.value??null,carried:true}));
  for(const group of Object.keys(user.recurring)) m[group]=user.recurring[group].filter(r=>r.start<=key && (!r.end||r.end>=key)).map(r=>{
   const prior=group==='fixed'?previous?.fixed?.find(item=>item.sourceId===r.id):null;
   return {...r,id:id(),sourceId:r.id,estimated:true,...(prior?{amount:prior.amount,...(prior.note!==undefined?{note:prior.note}:{})}:{}) ,...(group==='accounts'?{opening:0,closing:null,balanceDate:''}:{})};
  });
+ if(previous){
+  const pastAccountKeys=new Set(Object.entries(state.months[userId]||{}).filter(([k])=>k<key).flatMap(([,mm])=>mm.accounts.map(a=>a.sourceId||a.id)));
+  const fresh=m.accounts.filter(a=>!pastAccountKeys.has(a.sourceId||a.id));
+  m.accounts=[...previous.accounts.map(a=>({...a,opening:a.closing??a.opening??0,carried:true,estimated:true})),...fresh];
+ }
  return m;
 }
 export function ensureMonth(state,userId,key) { if(!validMonth(key)) throw new Error('Choose a valid month.'); if(state.months[userId]?.[key]) return state; return {...state,months:{...state.months,[userId]:{...state.months[userId],[key]:monthFor(state,userId,key)}}}; }
 export function updateMonth(state,userId,key,fn) { const next=ensureMonth(state,userId,key); const m=structuredClone(monthFor(next,userId,key)); fn(m); m.completed=m.completed.filter(x=>x!==7); return {...next,months:{...next.months,[userId]:{...next.months[userId],[key]:m}}}; }
 export function totals(m) {
  const receipts=receiptSummary(m),income=roundMoney(Number(m.income)+receipts.income),regular=sum(m.cards)+sum(m.fixed),oneoff=sum(m.oneoffs),refund=receipts.refund,otherReceipts=receipts.other,invest=sum(m.investments),remaining=roundMoney(income-regular-oneoff+refund-invest),opening=sum(m.accounts,'opening');
- const actual=m.accounts.length && m.accounts.every(a=>a.closing!==null && a.closing!=='')?sum(m.accounts,'closing'):null;
+ const actual=m.accounts.length && m.accounts.every(a=>!a.carried && a.closing!==null && a.closing!=='')?sum(m.accounts,'closing'):null;
  const netCashFlow=roundMoney(remaining+otherReceipts),expected=roundMoney(opening+netCashFlow),difference=actual===null?null:Math.round((actual-expected)*100)/100;
  return {income,regular,oneoff,refund,otherReceipts,netCashFlow,invest,remaining,opening,expected,actual,difference,investRate:income?invest/income:0,uncommittedRate:income?remaining/income:0,rate:income?(income-regular-oneoff+refund)/income:0,tallied:difference===0&&m.completed.includes(7),done:m.completed.length};
 }
@@ -39,7 +44,7 @@ export function seedState() {
  const state={version:2,activeUserId:candy.id,users:[candy,popcorn],families:[{id:id(),name:'Candy & PopCorn',code:'FAMILY-DEMO',memberIds:[candy.id,popcorn.id]}],months:{}};
  for(const [i,u] of state.users.entries()) {
   u.recurring.accounts=[{id:id(),name:'Savings account',start}];u.recurring.cards=[{id:id(),name:'HDFC Credit Card',amount:i?12000:8000,start},{id:id(),name:'ICICI Credit Card',amount:4000,start}];u.recurring.fixed=[{id:id(),name:'Rent / Home',amount:25000,start},{id:id(),name:'Utilities',amount:5000,start}];u.recurring.investments=[{id:id(),name:'Mutual Fund SIP',amount:i?40000:20000,start}];
-  state.months[u.id]={};for(let n=0;n<4;n++){const key=shiftMonth(start,n),m=monthFor(state,u.id,key);m.income=i?145257:128000;m.accounts[0].opening=50000;m.oneoffs=n===1?[{id:id(),name:'Travel',amount:6500,date:`${key}-12`,note:'Weekend trip'}]:[];if(n<3){m.accounts[0].closing=totals(m).expected;m.completed=[0,1,2,3,4,5,6,7];m.step=7;}state.months[u.id][key]=m;}
+  state.months[u.id]={};for(let n=0;n<4;n++){const key=shiftMonth(start,n),m=monthFor(state,u.id,key);m.income=i?145257:128000;m.accounts[0].opening=50000;m.oneoffs=n===1?[{id:id(),name:'Travel',amount:6500,date:`${key}-12`,note:'Weekend trip'}]:[];if(n<3){m.accounts[0].closing=totals(m).expected;delete m.accounts[0].carried;m.completed=[0,1,2,3,4,5,6,7];m.step=7;}state.months[u.id][key]=m;}
  }
  return state;
 }

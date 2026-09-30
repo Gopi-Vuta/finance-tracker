@@ -123,5 +123,8 @@ class FinanceApiTests {
         mvc.perform(put("/api/finance").with(google("wealth")).with(csrf()).contentType("application/json").content(service.encode(bad))).andExpect(status().isBadRequest());
         assertEquals(50000,object(list(object(object(payload(state("wealth")).get("months")).get("2030-02")).get("receipts")).get(0)).get("amount"));
     }
+    @Test void carriedBalancesPersistButCannotBeReconciledAsFresh()throws Exception{
+        var p=payload(state("carry"));var m=month();m.put("accounts",List.of(Map.of("id","bank","name","Bank","opening",5000,"closing",5000,"balanceDate","2030-01-31","carried",true)));m.put("assets",List.of(Map.of("id","stock","name","Stocks","kind","stocks","value",10000,"date","2030-01-31","carried",true)));object(p.get("months")).put("2030-02",m);save("carry",p);assertNull(actual(m));var next=payload(state("carry"));object(object(next.get("months")).get("2030-02")).put("completed",List.of(7));mvc.perform(put("/api/finance").with(google("carry")).with(csrf()).contentType("application/json").content(service.encode(next))).andExpect(status().isBadRequest());
+    }
     static class Recorder extends JavaMailSenderImpl {final List<SimpleMailMessage> messages=new ArrayList<>();@Override public void send(SimpleMailMessage message){messages.add(message);}}
 }
