@@ -36,7 +36,7 @@ export function monthFor(state,userId,key) {
  m.assets=(previous?.assets||[]).map(a=>({...a,value:a.value??null,carried:true}));
  for(const group of Object.keys(user.recurring)) m[group]=user.recurring[group].filter(r=>r.start<=key && (!r.end||r.end>=key)).map(r=>{
   const prior=group==='fixed'?previous?.fixed?.find(item=>item.sourceId===r.id):null;
-  return {...r,id:id(),sourceId:r.id,estimated:true,...(prior?{amount:prior.amount,...(prior.note!==undefined?{note:prior.note}:{})}:{}) ,...(group==='accounts'?{opening:0,closing:null,balanceDate:''}:{})};
+  return {...r,id:`${userId}:${key}:${group}:${r.id}`,sourceId:r.id,estimated:true,...(prior?{amount:prior.amount,...(prior.note!==undefined?{note:prior.note}:{})}:{}) ,...(group==='accounts'?{opening:0,closing:null,balanceDate:''}:{})};
  });
  if(previous){
   const pastAccountKeys=new Set(Object.entries(state.months[userId]||{}).filter(([k])=>k<key).flatMap(([,mm])=>mm.accounts.map(a=>a.sourceId||a.id)));

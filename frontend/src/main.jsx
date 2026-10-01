@@ -28,7 +28,7 @@ function App({initialState}){
  const [page,setPage]=useState('Dashboard'),[month,setMonth]=useState(currentMonth()),[view,setView]=useState('individual'),[editor,setEditor]=useState(null),[notice,setNotice]=useState(''),[invitation,setInvitation]=useState(null);
  function changeDailyDate(date){if(/^\d{4}-\d{2}-\d{2}$/.test(date)&&validMonth(date.slice(0,7))){setDailyDate(date);setMonth(date.slice(0,7));}}
  function navigate(n){if(n==='Daily Check-in')setMonth(dailyDate.slice(0,7));setPage(n);setNotice('');}
- const uid=state?.activeUserId;useEffect(()=>{if(uid)setState(s=>ensureMonth(s,uid,month));},[uid,month]);
+ const uid=state?.activeUserId;
  const user=state.users.find(u=>u.id===uid),family=familyFor(state,uid),familyView=view==='family'&&!!family,ids=familyView?family.memberIds:[uid],m=monthFor(state,uid,month),current=aggregate(ids.map(i=>monthFor(state,i,month))),range=dateRange(state,ids);
  const hasStarted=Object.values(state.months[uid]||{}).some(record=>Number(record.income||0)!==0||['accounts','cards','fixed','investments','oneoffs','remarks','receipts','assets'].some(group=>record[group]?.length)||(record.completed?.length||0)>0),showDashboardData=familyView||hasStarted;
  const chartKeys=Array.from({length:6},(_,i)=>shiftMonth(month,i-5)).filter(k=>k>=range.first),rows=chartKeys.map(key=>monthlyData(state,ids,key)),now=monthlyData(state,ids,month),previous=monthlyData(state,ids,shiftMonth(month,-1));
