@@ -1,0 +1,9 @@
+import React,{useRef,useEffect,useState} from 'react';
+import {Menu,X} from 'lucide-react';
+import {PageIcon} from './Visuals.jsx';
+export function MobileMenu({items,page,onNavigate,user}){
+ const dialog=useRef(null),trigger=useRef(null),[open,setOpen]=useState(false);
+ const close=()=>{dialog.current?.close();setOpen(false);};
+ useEffect(()=>{if(!open)return;const previous=document.body.style.overflow;document.body.style.overflow='hidden';const media=matchMedia('(min-width:1051px)');const resize=()=>{if(media.matches)close();};media.addEventListener('change',resize);return()=>{document.body.style.overflow=previous;media.removeEventListener('change',resize);};},[open]);
+ return <><button className="mobile-menu-trigger" ref={trigger} aria-label="Open navigation menu" aria-haspopup="dialog" aria-expanded={open} aria-controls="mobile-menu" onClick={()=>{dialog.current.showModal();setOpen(true);}}><Menu size={23}/></button><dialog id="mobile-menu" ref={dialog} className="mobile-menu-drawer" aria-label="Navigation menu" onCancel={e=>{e.preventDefault();close();}} onClose={()=>{setOpen(false);trigger.current?.focus();}} onClick={e=>{if(e.target===e.currentTarget){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();}}}><div className="mobile-menu-head"><div className="brand"><span aria-hidden="true">P</span>PennyFolio</div><button aria-label="Close navigation menu" onClick={close}><X size={22}/></button></div><p className="mobile-menu-caption">YOUR FINANCE SPACE</p><nav aria-label="Mobile navigation">{items.map(n=><button key={n} aria-current={page===n?'page':undefined} className={page===n?'active':''} onClick={()=>{onNavigate(n);close();}}><PageIcon name={n}/><span>{n}</span></button>)}</nav><div className="mobile-menu-user"><b>{user.name}</b><small>{user.email}</small></div></dialog></>;
+}
